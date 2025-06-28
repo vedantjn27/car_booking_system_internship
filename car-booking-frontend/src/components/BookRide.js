@@ -377,10 +377,12 @@ Ride Booking Team
     }
 
     try {
+      const otp = Math.floor(1000 + Math.random() * 9000);
+
       const formattedPhone = formatPhoneForDisplay(phone);
       const smsData = {
         phone: formattedPhone,
-        message: `Your ride is confirmed! Driver ${rideDetails.driver?.name || 'Ravi'} is on the way 🚗`
+        message: `Your ride is confirmed! Driver ${rideDetails.driver?.name || 'Ravi'} is on the way 🚗\nYour OTP is: ${otp}`
       };
 
       const response = await axios.post('http://localhost:8000/notify/sms', smsData);
@@ -411,12 +413,15 @@ Ride Booking Team
       return;
     }
 
+    const rider_email = localStorage.getItem("email"); // ✅ Get logged-in email
+    console.log("Rider Email:", rider_email);
     setLoading(true);
     try {
       const response = await axios.post('http://localhost:8000/book-ride', {
         pickup: pickupQuery,
         drop: dropQuery,
-        pickup_coords: pickupCoords
+        pickup_coords: pickupCoords,
+        rider_email
       });
       
       const successMessage = response.data.message || "Ride booked successfully!";
