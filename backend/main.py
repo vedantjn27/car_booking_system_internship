@@ -321,17 +321,29 @@ def register_user(user: UserSignup):
 
     users_collection.insert_one({
         "email": user.email,
-        "password": user.password,  # For production, hash this password!
-        "user_type": user.user_type
+        "password": user.password,  # 🔐 For production, hash this password!
+        "user_type": user.user_type,
+        "status": "Active"          # ✅ Set default status
     })
 
-    return {"message": "User registered successfully", "email": user.email, "role": user.user_type}
-
+    return {
+        "message": "User registered successfully",
+        "email": user.email,
+        "role": user.user_type
+    }
 @app.post("/login")
 def login_user(user: UserLogin):
-    found = users_collection.find_one({"email": user.email, "password": user.password})
+    found = users_collection.find_one({
+        "email": user.email,
+        "password": user.password
+    })
+
     if not found:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # 🔒 Check if the user is blocked
+    if found.get("status", "Active") == "Blocked":
+        raise HTTPException(status_code=403, detail="Your account has been blocked. Please contact support.")
 
     return {
         "message": "Login successful",
@@ -520,23 +532,23 @@ def get_admin_stats():
 def get_customers():
     users = list(users_collection.find({"user_type": "customer"}))
     customers = []
-
     for user in users:
         email = user.get("email", "")  # this is from users_collection
         joined = str(user.get("_id").generation_time)
-
+        # Get the status field, default to "Active" if not present
+        status = user.get("status", "Active")
+        
         # Fetch total fare from rides_collection using rider_email
         total_spent = sum(
             ride.get("fare", 0)
             for ride in rides_collection.find({"rider_email": email, "status": "completed"})
         )
-
         customers.append({
             "email": email,
             "joined_at": joined,
-            "total_spent": round(total_spent, 2)
+            "total_spent": round(total_spent, 2),
+            "status": status  # Add this line!
         })
-
     return customers
 
 @app.get("/admin/drivers")
@@ -572,18 +584,33 @@ def get_all_drivers():
 
         # Get vehicle and availability
         vehicle = driver_details_map.get(email, {}).get("vehicle_number", "N/A")
-        status = driver_status_map.get(email, False)
+        availability = driver_status_map.get(email, False)
+
+        # Get account status (default to "Active" if missing)
+        account_status = driver.get("status", "Active")
 
         result.append({
             "email": email,
             "vehicle_number": vehicle,
             "total_earned": round(earnings, 2),
-            "is_available": status,
+            "is_available": availability,
             "average_rating": avg_rating,
-            "completed_rides": len(completed_rides)
+            "completed_rides": len(completed_rides),
+            "status": account_status  # ✅ Added status field
         })
 
     return result
+@app.put("/user/status/{email}")
+def toggle_user_status(email: str):
+    user = users_collection.find_one({"email": email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    new_status = "Blocked" if user.get("status", "Active") == "Active" else "Active"
+    users_collection.update_one({"email": email}, {"$set": {"status": new_status}})
+    return {"email": email, "new_status": new_status}
+
+
 # ----------------------------
 # Socket.IO Events
 
