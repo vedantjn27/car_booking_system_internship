@@ -396,6 +396,7 @@ Ride Booking Team
     setBookingMessage('');
   }, [pickupQuery, dropQuery]);
 
+  
   const bookRide = async () => {
     if (!pickupQuery || !dropQuery || fare === null || !pickupCoords || !dropCoords) {
       alert("Please enter all details and calculate fare first!");

@@ -49,6 +49,7 @@ function Signup({ onSignupSuccess }) {
       const data = await response.json();
       
       if (response.ok) {
+        localStorage.setItem("email", data.email);
         alert("✅ Signup successful!");
       
         // If user is a driver, call second endpoint to store vehicle & license
